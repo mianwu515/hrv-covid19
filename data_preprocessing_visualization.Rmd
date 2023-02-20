@@ -1,0 +1,100 @@
+---
+title: "20230218_luo_wu_proposal"
+author:
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Data preprocessing
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+## Load the necessary libraries
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(psych) # Contains the winsor function and other helpful statistical tools
+library(tidyverse) # Remember from last homework that dplyr is included in tidyverse
+library(gridExtra)
+library(corrplot)
+library(patchwork)
+library(stats)
+```
+
+
+```{r}
+## Load the data
+path_hrv <- "data/hrv_measurements.csv"
+hrv_data <- read.csv(path_hrv)
+head(hrv_data, 10)
+
+path_subjects <- "data/participants.csv"
+subjects_data <- read.csv(path_subjects)
+head(subjects_data, 10)
+
+dim(hrv_data)
+dim(subjects_data)
+```
+```{r}
+## Merge the HRV data and age data using user_code as the common identifier
+combined_hrv_data <- hrv_data %>%
+  left_join(subjects_data, by = "user_code")
+
+head(combined_hrv_data, 10)
+dim(combined_hrv_data)
+```
+```{r}
+## Drop unnecessary columns
+combined_hrv_data <- combined_hrv_data %>%
+  select(-c("rr_code", "how_sleep", "city", "country", "rr_data"))
+```
+
+```{r}
+## Convert the age data from chr to factor
+combined_hrv_data <- combined_hrv_data %>%
+  mutate(age_range = factor(age_range))
+
+## Print the levels of the age_range factor
+levels(combined_hrv_data$age_range)
+
+## Calculate BMI using height (cm) and weight (kg) information
+combined_hrv_data <- combined_hrv_data %>%
+  mutate(bmi = weight / ((height / 100) ^ 2))
+
+head(combined_hrv_data$bmi, 20)
+```
+
+
+
+```{r}
+## Check for missing values
+sum(is.na(hrv_data))
+```
+
+```{r}
+## Normalize the data
+hrv_data_norm <- hrv_data %>%
+  mutate(across(c("rmssd", "sdnn", "pnn50"), ~(. - mean(.)) / sd(.)))
+
+head(hrv_data_norm, 20)
+```
+
+## Data exploration and visualization
+```{r}
+## Descriptive statistics
+summary(hrv_data_norm)
+```
+```{r}
+## Correlation matrix
+cor(hrv_data_norm[,c("rmssd", "sdnn", "pnn50", "Age", "BMI")])
+```
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
