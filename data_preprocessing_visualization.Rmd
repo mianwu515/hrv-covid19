@@ -35,6 +35,8 @@ dim(hrv_data)
 dim(subjects_data)
 ```
 ```{r}
+# unique(subjects_data$country)
+
 ## Merge the HRV data and age data using user_code as the common identifier
 combined_hrv_data <- hrv_data %>%
   left_join(subjects_data, by = "user_code")
@@ -45,7 +47,7 @@ dim(combined_hrv_data)
 ```{r}
 ## Drop unnecessary columns
 combined_hrv_data <- combined_hrv_data %>%
-  select(-c("rr_code", "how_sleep", "city", "country", "rr_data"))
+  select(-c("rr_code", "how_sleep", "city", "rr_data", "tags")) #country
 ```
 
 ```{r}
@@ -64,37 +66,55 @@ head(combined_hrv_data$bmi, 20)
 ```
 
 
-
 ```{r}
 ## Check for missing values
-sum(is.na(hrv_data))
+sum(is.na(combined_hrv_data))
+```
+```{r}
+## Impute missing values with mean
+combined_hrv_data <- combined_hrv_data %>%
+  mutate(across(c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi"), 
+                ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 ```
 
 ```{r}
 ## Normalize the data
-hrv_data_norm <- hrv_data %>%
-  mutate(across(c("rmssd", "sdnn", "pnn50"), ~(. - mean(.)) / sd(.)))
+combined_hrv_data_norm <- combined_hrv_data %>%
+  mutate(across(c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi"), ~(. - mean(.)) / sd(.)))
 
-head(hrv_data_norm, 20)
+head(combined_hrv_data_norm, 20)
 ```
 
 ## Data exploration and visualization
 ```{r}
 ## Descriptive statistics
-summary(hrv_data_norm)
+summary(combined_hrv_data_norm)
 ```
 ```{r}
 ## Correlation matrix
-cor(hrv_data_norm[,c("rmssd", "sdnn", "pnn50", "Age", "BMI")])
+corr_matrix <- cor(combined_hrv_data_norm[,c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi")])
+
+# Order the correlation matrix using hierarchical clustering
+corr_order <- stats::hclust(dist(corr_matrix))$order
+
+# Create the correlation plot
+corrplot(corr_matrix[corr_order, corr_order], method = "color")
 ```
 
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+## Histogram of RMSSD
+hist(combined_hrv_data_norm$rmssd, breaks = 20, main = "Histogram of RMSSD")
 ```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+## Scatterplot of RMSSD and Age
+plot(combined_hrv_data_norm$age_range, combined_hrv_data_norm$rmssd, xlab = "Age", ylab = "RMSSD", main = "Scatterplot of RMSSD and Age")
+```
+```{r}
+## Boxplot of RMSSD by disease severity
+combined_hrv_data_norm %>%
+  ggplot(aes(x = country, y = bmi)) +
+  geom_boxplot() +
+  xlab("Disease Severity") +
+  ylab("RMSSD") +
+  ggtitle("Boxplot of RMSSD by Disease Severity")
+```
