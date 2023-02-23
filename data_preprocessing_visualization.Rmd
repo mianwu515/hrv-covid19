@@ -110,11 +110,17 @@ hist(combined_hrv_data_norm$rmssd, breaks = 20, main = "Histogram of RMSSD")
 plot(combined_hrv_data_norm$age_range, combined_hrv_data_norm$rmssd, xlab = "Age", ylab = "RMSSD", main = "Scatterplot of RMSSD and Age")
 ```
 ```{r}
+## Handle outliers
+```
+
+```{r}
 ## Boxplot of BMI by country
 combined_hrv_data_norm %>%
-  ggplot(aes(x = country, y = bmi)) +
+  ggplot(aes(x = country, y = rmssd)) +
   geom_boxplot() +
-  xlab("Disease Severity") +
+  xlab("Country") +
   ylab("RMSSD") +
-  ggtitle("Boxplot of RMSSD by Disease Severity")
+  ggtitle("Boxplot of RMSSD by Country")
 ```
+
+
