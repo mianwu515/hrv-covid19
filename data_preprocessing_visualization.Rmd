@@ -131,8 +131,8 @@ corrplot(corr_matrix[corr_order, corr_order], method = "color", main="Correlatio
 hist(train_hrv$rmssd, breaks = 20, main = "Histogram of RMSSD", xlab = "RMSSD")
 ```
 ```{r}
-## Scatterplot of RMSSD and Age
-plot(train_hrv$age_range, train_hrv$rmssd, xlab = "Age", ylab = "RMSSD", main = "Scatterplot of RMSSD and Age")
+## Boxplot of RMSSD and Age
+plot(train_hrv$age_range, train_hrv$rmssd, xlab = "Age", ylab = "RMSSD", main = "Boxplot of RMSSD by Age")
 ```
 ```{r}
 ## Handle outliers
