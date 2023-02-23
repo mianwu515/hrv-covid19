@@ -33,6 +33,7 @@ head(subjects_data, 10)
 
 dim(hrv_data)
 dim(subjects_data)
+# sort(table(hrv_data$user_code))
 ```
 ```{r}
 # unique(subjects_data$country)
