@@ -18,6 +18,7 @@ library(gridExtra)
 library(corrplot)
 library(patchwork)
 library(stats)
+library(caret)
 ```
 
 
@@ -33,7 +34,6 @@ head(subjects_data, 10)
 
 dim(hrv_data)
 dim(subjects_data)
-# sort(table(hrv_data$user_code))
 ```
 ```{r}
 # unique(subjects_data$country)
@@ -85,6 +85,14 @@ combined_hrv_data_norm <- combined_hrv_data %>%
 
 head(combined_hrv_data_norm, 20)
 ```
+```{r}
+set.seed(580)
+train_id = sample(unique(combined_hrv_data_norm$user_code),0.8*length(unique(combined_hrv_data_norm$user_code)))
+train_hrv <- combined_hrv_data_norm[combined_hrv_data_norm$user_code %in% train_id,]
+test_hrv <- combined_hrv_data_norm[!combined_hrv_data_norm$user_code %in% train_id,]
+```
+
+
 
 ## Data exploration and visualization
 ```{r}
