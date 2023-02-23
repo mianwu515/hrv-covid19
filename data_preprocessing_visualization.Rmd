@@ -52,6 +52,7 @@ combined_hrv_data <- combined_hrv_data %>%
 ```
 
 ```{r}
+head(combined_hrv_data, 10)
 ## Convert the age data from chr to factor
 combined_hrv_data <- combined_hrv_data %>%
   mutate(age_range = factor(age_range))
@@ -86,6 +87,18 @@ combined_hrv_data_norm <- combined_hrv_data %>%
 head(combined_hrv_data_norm, 20)
 ```
 ```{r}
+## 
+plot <- ggplot(combined_hrv_data_norm, aes(x = rmssd)) +
+  geom_histogram(bins=sqrt(nrow(combined_hrv_data_norm))) +
+  theme_classic()
+
+plot
+
+pairs.panels(combined_hrv_data_norm[4:18], pch=21, main="The first 10 Independent Features of the Breast Cancer Dataset")
+```
+
+
+```{r}
 set.seed(580)
 train_id = sample(unique(combined_hrv_data_norm$user_code),0.8*length(unique(combined_hrv_data_norm$user_code)))
 train_hrv <- combined_hrv_data_norm[combined_hrv_data_norm$user_code %in% train_id,]
@@ -97,11 +110,11 @@ test_hrv <- combined_hrv_data_norm[!combined_hrv_data_norm$user_code %in% train_
 ## Data exploration and visualization
 ```{r}
 ## Descriptive statistics
-summary(combined_hrv_data_norm)
+summary(train_hrv)
 ```
 ```{r}
 ## Correlation matrix
-corr_matrix <- cor(combined_hrv_data_norm[,c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi")])
+corr_matrix <- cor(train_hrv[,c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi")])
 
 # Order the correlation matrix using hierarchical clustering
 corr_order <- stats::hclust(dist(corr_matrix))$order
@@ -112,11 +125,11 @@ corrplot(corr_matrix[corr_order, corr_order], method = "color")
 
 ```{r}
 ## Histogram of RMSSD
-hist(combined_hrv_data_norm$rmssd, breaks = 20, main = "Histogram of RMSSD")
+hist(train_hrv$rmssd, breaks = 20, main = "Histogram of RMSSD")
 ```
 ```{r}
 ## Scatterplot of RMSSD and Age
-plot(combined_hrv_data_norm$age_range, combined_hrv_data_norm$rmssd, xlab = "Age", ylab = "RMSSD", main = "Scatterplot of RMSSD and Age")
+plot(train_hrv$age_range, train_hrv$rmssd, xlab = "Age", ylab = "RMSSD", main = "Scatterplot of RMSSD and Age")
 ```
 ```{r}
 ## Handle outliers
@@ -124,12 +137,13 @@ plot(combined_hrv_data_norm$age_range, combined_hrv_data_norm$rmssd, xlab = "Age
 
 ```{r}
 ## Boxplot of BMI by country
-combined_hrv_data_norm %>%
+train_hrv %>%
   ggplot(aes(x = country, y = rmssd)) +
   geom_boxplot() +
   xlab("Country") +
   ylab("RMSSD") +
-  ggtitle("Boxplot of RMSSD by Country")
+  ggtitle("Boxplot of RMSSD by Country") +
+  theme_classic()
 ```
 
 
