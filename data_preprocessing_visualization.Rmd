@@ -88,13 +88,15 @@ head(combined_hrv_data_norm, 20)
 ```
 ```{r}
 ## 
-plot <- ggplot(combined_hrv_data_norm, aes(x = rmssd)) +
+ggplot(combined_hrv_data_norm, aes(x = meanrr)) +
   geom_histogram(bins=sqrt(nrow(combined_hrv_data_norm))) +
-  theme_classic()
+  theme_classic() +
+  labs(title = "Histogram of Mean RR by Count", x = "Mean RR", y = "Count")
 
-plot
+pairs.panels(combined_hrv_data_norm[4:8], pch=21, main="ppm, meanrr, mxdmn, sdnn, rmssd distribution")
 
-pairs.panels(combined_hrv_data_norm[4:18], pch=21, main="The first 10 Independent Features of the Breast Cancer Dataset")
+all_rr_data <- as.numeric(unlist(strsplit(hrv_data$rr_data,",")))
+boxplot(all_rr_data,ylab = "Heart beat invervals (ms)", main = "Box plot for Heart Beat Rate")
 ```
 
 
@@ -120,12 +122,13 @@ corr_matrix <- cor(train_hrv[,c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdm
 corr_order <- stats::hclust(dist(corr_matrix))$order
 
 # Create the correlation plot
-corrplot(corr_matrix[corr_order, corr_order], method = "color")
+corrplot(corr_matrix[corr_order, corr_order], method = "color", main="Correlation Matrix")
 ```
 
 ```{r}
 ## Histogram of RMSSD
-hist(train_hrv$rmssd, breaks = 20, main = "Histogram of RMSSD")
+# rMSSD — root mean square of successive differences for consecutive intervals.
+hist(train_hrv$rmssd, breaks = 20, main = "Histogram of RMSSD", xlab = "RMSSD")
 ```
 ```{r}
 ## Scatterplot of RMSSD and Age
@@ -143,7 +146,8 @@ train_hrv %>%
   xlab("Country") +
   ylab("RMSSD") +
   ggtitle("Boxplot of RMSSD by Country") +
-  theme_classic()
+  theme_classic() +
+  theme(axis.text.x = element_blank())
 ```
 
 
