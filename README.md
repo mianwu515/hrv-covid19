@@ -1,4 +1,4 @@
-# BME580 Project: Exploring the Relationship Between Heart Rate Variability and COVID-19 Infection using Wearables Data: A Machine Learning Approach. 
+# BME580 Project: Exploring the Relationship Between Heart Rate Variability and COVID-19 Infection using Wearables Data. 
 
 #### Objectives:
 The COVID-19 pandemic has led to a surge in research to better understand the virus and its impact on the human body. HRV has been shown to be a useful indicator of early COVID-19 symptoms. We aim to predict whether and when a subject is infected by COVID-19 using HRV-related features.
