@@ -168,23 +168,7 @@ hist(train_hrv$rmssd, breaks = 20, main = "Histogram of RMSSD", xlab = "RMSSD")
 ## Boxplot of RMSSD and Age
 plot(train_hrv$age_range, train_hrv$rmssd, xlab = "Age", ylab = "RMSSD", main = "Boxplot of RMSSD by Age")
 ```
-```{r}
-## Handle outliers
-mean_chol <- mean(Cholesterol_Cirrhosis_without_NA$Cholesterol)
-sd_chol <- sd(Cholesterol_Cirrhosis_without_NA$Cholesterol)
-mean_pt <- mean(Prothrombin_Cirrhosis_without_NA$Prothrombin)
-sd_pt <- sd(Prothrombin_Cirrhosis_without_NA$Prothrombin)
 
-# Calculate the upper and lower bounds for cholesterol and prothrombin
-upper_chol <- mean_chol + 3*sd_chol
-lower_chol <- mean_chol - 3*sd_chol
-upper_pt <- mean_pt + 3*sd_pt
-lower_pt <- mean_pt - 3*sd_pt
-
-# Count the number of values that lie outside the bounds
-num_outliers_chol <- Cholesterol_Cirrhosis_without_NA %>% filter(Cholesterol > upper_chol | Cholesterol < lower_chol) %>% nrow()
-num_outliers_pt <- Prothrombin_Cirrhosis_without_NA %>% filter(Prothrombin > upper_pt | Prothrombin < lower_pt) %>% nrow()
-```
 
 ```{r}
 ## Boxplot of BMI by country
