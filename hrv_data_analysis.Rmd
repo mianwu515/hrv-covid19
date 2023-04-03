@@ -49,16 +49,41 @@ dim(combined_hrv_data)
 ## Drop unnecessary columns
 combined_hrv_data <- combined_hrv_data %>%
   select(-c("rr_code", "how_sleep", "city", "rr_data", "tags")) #country
-```
 
-```{r}
-head(combined_hrv_data, 10)
+# Convert columns to factors
+combined_hrv_data$time_of_day = factor(combined_hrv_data$time_of_day)
+
 ## Convert the age data from chr to factor
 combined_hrv_data <- combined_hrv_data %>%
   mutate(age_range = factor(age_range))
 
 ## Print the levels of the age_range factor
 levels(combined_hrv_data$age_range)
+
+# unique(combined_hrv_data$how_feel)
+combined_hrv_data$how_feel <- factor(combined_hrv_data$how_feel, levels = c(-2, -1, 0, 1, 2))
+
+# unique(combined_hrv_data$how_mood)
+combined_hrv_data$how_mood <- factor(combined_hrv_data$how_mood, levels = c(-2, -1, 0, 1, 2))
+
+combined_hrv_data$gender = factor(combined_hrv_data$gender)
+
+head(combined_hrv_data, 10)
+str(combined_hrv_data)
+summary(combined_hrv_data)
+
+# unique(combined_hrv_data$symptoms_onset)
+# create a new column with 2 categories
+combined_hrv_data$diagnosis <- ifelse(combined_hrv_data$symptoms_onset == "", "N", "Y")
+
+# print the table of the new column
+table(combined_hrv_data$diagnosis)
+
+#combined_hrv_data
+```
+
+```{r}
+head(combined_hrv_data, 10)
 
 ## Calculate BMI using height (cm) and weight (kg) information
 combined_hrv_data <- combined_hrv_data %>%
@@ -71,18 +96,27 @@ head(combined_hrv_data$bmi, 20)
 ```{r}
 ## Check for missing values
 sum(is.na(combined_hrv_data))
+colSums(is.na(combined_hrv_data))
 ```
 ```{r}
 ## Impute missing values with mean
 combined_hrv_data <- combined_hrv_data %>%
   mutate(across(c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi"), 
                 ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+head(combined_hrv_data, 20)
+```
+
+```{r}
+
 ```
 
 ```{r}
 ## Normalize the data
+# combined_hrv_data_norm <- combined_hrv_data %>% mutate(across(c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn",  "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi"), ~(. - mean(.)) / sd(.)))
+
 combined_hrv_data_norm <- combined_hrv_data %>%
-  mutate(across(c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi"), ~(. - mean(.)) / sd(.)))
+  mutate_if(is.numeric, funs((. - mean(.)) / sd(.)))
 
 head(combined_hrv_data_norm, 20)
 ```
@@ -136,6 +170,20 @@ plot(train_hrv$age_range, train_hrv$rmssd, xlab = "Age", ylab = "RMSSD", main = 
 ```
 ```{r}
 ## Handle outliers
+mean_chol <- mean(Cholesterol_Cirrhosis_without_NA$Cholesterol)
+sd_chol <- sd(Cholesterol_Cirrhosis_without_NA$Cholesterol)
+mean_pt <- mean(Prothrombin_Cirrhosis_without_NA$Prothrombin)
+sd_pt <- sd(Prothrombin_Cirrhosis_without_NA$Prothrombin)
+
+# Calculate the upper and lower bounds for cholesterol and prothrombin
+upper_chol <- mean_chol + 3*sd_chol
+lower_chol <- mean_chol - 3*sd_chol
+upper_pt <- mean_pt + 3*sd_pt
+lower_pt <- mean_pt - 3*sd_pt
+
+# Count the number of values that lie outside the bounds
+num_outliers_chol <- Cholesterol_Cirrhosis_without_NA %>% filter(Cholesterol > upper_chol | Cholesterol < lower_chol) %>% nrow()
+num_outliers_pt <- Prothrombin_Cirrhosis_without_NA %>% filter(Prothrombin > upper_pt | Prothrombin < lower_pt) %>% nrow()
 ```
 
 ```{r}
@@ -150,4 +198,16 @@ train_hrv %>%
   theme(axis.text.x = element_blank())
 ```
 
+```{r}
+summary(train_hrv)
+```
+  
+```{r}
+x_scale = combined_hrv_data %>% mutate_if(is.numeric, scale)
+head(x_scale, 5)
+
+y_data = as.factor(combined_hrv_data$symptoms_onset)
+x_scale
+y_data
+```
 
