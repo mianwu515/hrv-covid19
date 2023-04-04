@@ -19,6 +19,7 @@ library(corrplot)
 library(patchwork)
 library(stats)
 library(caret)
+library(lubridate)
 ```
 
 
@@ -193,5 +194,15 @@ head(x_scale, 5)
 y_data = as.factor(combined_hrv_data$symptoms_onset)
 x_scale
 y_data
+```
+
+```{r}
+combined_hrv_data <- combined_hrv_data %>%
+  mutate(
+    measurement_date = as.Date(ymd_hms(measurement_datetime)),
+    symptoms_date = as.Date(mdy(symptoms_onset), na.strings = ""),
+    covid_status = ifelse(is.na(symptoms_date) | measurement_date < symptoms_date, 0, 1)
+  )
+head(combined_hrv_data)
 ```
 
