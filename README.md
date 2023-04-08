@@ -12,3 +12,5 @@ We will try two approaches to handle the large number of features of the data se
 #### Project Updates:
 All modeling progress will be tracked and updated via frequent updates to the Github file.
 Current Progress: Building models & Performance measurement
+
+Model list: logistic regression, LDA, decision tree, random forest, svm
