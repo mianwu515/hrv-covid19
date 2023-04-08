@@ -1,8 +1,8 @@
 ---
-title: "20230218_luo_wu_proposal"
+title: "20230407_luo_wu_project"
 author:
 date: "`r Sys.Date()`"
-output: html_document
+output: pdf_document
 ---
 
 ## Data preprocessing
@@ -47,9 +47,13 @@ head(combined_hrv_data, 10)
 dim(combined_hrv_data)
 ```
 ```{r}
+### have a look at rr_data
+all_rr_data <- as.numeric(unlist(strsplit(hrv_data$rr_data,",")))
+boxplot(all_rr_data,ylab = "Heart beat invervals (ms)", main = "Box plot for Heart Beat Rate")
+
 ## Drop unnecessary columns
 combined_hrv_data <- combined_hrv_data %>%
-  select(-c("rr_code", "how_sleep", "city", "rr_data", "tags")) #country
+  select(-c("user_code", "rr_code", "how_sleep", "city", "rr_data", "tags")) #country
 
 # Convert columns to factors
 combined_hrv_data$time_of_day = factor(combined_hrv_data$time_of_day)
@@ -68,93 +72,95 @@ combined_hrv_data$how_feel <- factor(combined_hrv_data$how_feel, levels = c(-2, 
 combined_hrv_data$how_mood <- factor(combined_hrv_data$how_mood, levels = c(-2, -1, 0, 1, 2))
 
 combined_hrv_data$gender = factor(combined_hrv_data$gender)
+combined_hrv_data$country = factor(combined_hrv_data$country)
 
-head(combined_hrv_data, 10)
-str(combined_hrv_data)
-summary(combined_hrv_data)
+#head(combined_hrv_data, 10)
+#str(combined_hrv_data)
+#summary(combined_hrv_data)
 
-# unique(combined_hrv_data$symptoms_onset)
-# create a new column with 2 categories
-combined_hrv_data$diagnosis <- ifelse(combined_hrv_data$symptoms_onset == "", "N", "Y")
-
-# print the table of the new column
-table(combined_hrv_data$diagnosis)
-
-#combined_hrv_data
-```
-
-```{r}
-head(combined_hrv_data, 10)
-
-## Calculate BMI using height (cm) and weight (kg) information
+## Calculate a new column BMI using height (cm) and weight (kg) information
 combined_hrv_data <- combined_hrv_data %>%
   mutate(bmi = weight / ((height / 100) ^ 2))
 
-head(combined_hrv_data$bmi, 20)
-```
+# unique(combined_hrv_data$symptoms_onset)
+# create a new column with 2 categories
+#combined_hrv_data$diagnosis <- ifelse(combined_hrv_data$symptoms_onset == "", "N", "Y")
 
+# create 3 new columns, measurement_date, symptoms_date, covid_status
+combined_hrv_data <- combined_hrv_data %>%
+  mutate(
+    measurement_date = as.Date(ymd_hms(measurement_datetime)),
+    symptoms_date = as.Date(mdy(symptoms_onset), na.strings = ""),
+    covid_status = ifelse(is.na(symptoms_date) | measurement_date < symptoms_date, 0, 1)
+  )
+
+combined_hrv_data$covid_status = factor(combined_hrv_data$covid_status)
+
+head(combined_hrv_data)
+
+# print the table of the new column
+table(combined_hrv_data$covid_status)
+
+## remove columns
+hrv_df <- combined_hrv_data %>%
+  select(-c("measurement_datetime", "symptoms_onset", "measurement_date", "symptoms_date"))
+
+hrv_df
+```
 
 ```{r}
 ## Check for missing values
-sum(is.na(combined_hrv_data))
-colSums(is.na(combined_hrv_data))
+sum(is.na(hrv_df))
+colSums(is.na(hrv_df))
+
+hrv_df
+summary(hrv_df)
 ```
 ```{r}
-## Impute missing values with mean
-combined_hrv_data <- combined_hrv_data %>%
-  mutate(across(c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi"), 
-                ~ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+# Calculate the mean height and mean BMI
+mean_height <- mean(hrv_df$height, na.rm = TRUE)
+mean_bmi <- mean(hrv_df$bmi, na.rm = TRUE)
 
-head(combined_hrv_data, 20)
+# Impute the missing values with their respective means
+hrv_df$height[is.na(hrv_df$height)] <- mean_height
+hrv_df$bmi[is.na(hrv_df$bmi)] <- mean_bmi
+
+# Check for missing values again to confirm the imputation
+sum(is.na(hrv_df))
+colSums(is.na(hrv_df))
 ```
 
-```{r}
-
-```
 
 ```{r}
-## Normalize the data
-# combined_hrv_data_norm <- combined_hrv_data %>% mutate(across(c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn",  "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi"), ~(. - mean(.)) / sd(.)))
+## Scale the data
+hrv_df_scaled <- hrv_df %>%
+  mutate(across(where(is.numeric) & -c(covid_status),  ~scale(.x)))
 
-combined_hrv_data_norm <- combined_hrv_data %>%
-  mutate_if(is.numeric, funs((. - mean(.)) / sd(.)))
-
-head(combined_hrv_data_norm, 20)
-```
-```{r}
-## 
-ggplot(combined_hrv_data_norm, aes(x = meanrr)) +
-  geom_histogram(bins=sqrt(nrow(combined_hrv_data_norm))) +
+hrv_df_scaled
+## Plot 
+ggplot(hrv_df_scaled, aes(x = meanrr)) +
+  geom_histogram(bins=sqrt(nrow(hrv_df_scaled))) +
   theme_classic() +
   labs(title = "Histogram of Mean RR by Count", x = "Mean RR", y = "Count")
 
-pairs.panels(combined_hrv_data_norm[4:8], pch=21, main="ppm, meanrr, mxdmn, sdnn, rmssd distribution")
-
-all_rr_data <- as.numeric(unlist(strsplit(hrv_data$rr_data,",")))
-boxplot(all_rr_data,ylab = "Heart beat invervals (ms)", main = "Box plot for Heart Beat Rate")
+pairs.panels(hrv_df_scaled[3:7], pch=21, main="bpm, meanrr, mxdmn, sdnn, rmssd distribution")
 ```
-
-
-```{r}
-set.seed(580)
-train_id = sample(unique(combined_hrv_data_norm$user_code),0.8*length(unique(combined_hrv_data_norm$user_code)))
-train_hrv <- combined_hrv_data_norm[combined_hrv_data_norm$user_code %in% train_id,]
-test_hrv <- combined_hrv_data_norm[!combined_hrv_data_norm$user_code %in% train_id,]
-```
-
-
 
 ## Data exploration and visualization
 ```{r}
 ## Descriptive statistics
-summary(train_hrv)
-```
-```{r}
-## Correlation matrix
-corr_matrix <- cor(train_hrv[,c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "how_feel", "how_mood", "bmi")])
+summary(hrv_df_scaled)
+
+hrv_df_scaled
+
+selected_columns <- c("rmssd", "sdnn", "pnn50", "bpm", "meanrr", "mxdmn", "mode", "amo", "lf", "hf", "vlf", "lfhf", "total_power", "bmi")
+corr_matrix <- cor(hrv_df_scaled[, selected_columns])
+
+# Calculate the distance matrix based on the correlation matrix
+dist_matrix <- as.dist(1 - abs(corr_matrix))
 
 # Order the correlation matrix using hierarchical clustering
-corr_order <- stats::hclust(dist(corr_matrix))$order
+corr_order <- stats::hclust(dist_matrix)$order
 
 # Create the correlation plot
 corrplot(corr_matrix[corr_order, corr_order], method = "color", main="Correlation Matrix")
@@ -163,17 +169,17 @@ corrplot(corr_matrix[corr_order, corr_order], method = "color", main="Correlatio
 ```{r}
 ## Histogram of RMSSD
 # rMSSD — root mean square of successive differences for consecutive intervals.
-hist(train_hrv$rmssd, breaks = 20, main = "Histogram of RMSSD", xlab = "RMSSD")
+hist(hrv_df_scaled$rmssd, breaks = 20, main = "Histogram of RMSSD", xlab = "RMSSD")
 ```
 ```{r}
 ## Boxplot of RMSSD and Age
-plot(train_hrv$age_range, train_hrv$rmssd, xlab = "Age", ylab = "RMSSD", main = "Boxplot of RMSSD by Age")
+plot(hrv_df_scaled$age_range, hrv_df_scaled$rmssd, xlab = "Age", ylab = "RMSSD", main = "Boxplot of RMSSD by Age")
 ```
 
 
 ```{r}
 ## Boxplot of BMI by country
-train_hrv %>%
+hrv_df_scaled %>%
   ggplot(aes(x = country, y = rmssd)) +
   geom_boxplot() +
   xlab("Country") +
@@ -184,25 +190,31 @@ train_hrv %>%
 ```
 
 ```{r}
-summary(train_hrv)
+summary(hrv_df_scaled)
 ```
   
-```{r}
-x_scale = combined_hrv_data %>% mutate_if(is.numeric, scale)
-head(x_scale, 5)
 
-y_data = as.factor(combined_hrv_data$symptoms_onset)
-x_scale
-y_data
+```{r}
+## Create a feature that measures the number of days since the onset of symptoms
+# combined_hrv_data <- combined_hrv_data %>% mutate(days_since_symptoms = as.numeric(difftime(measurement_date, symptoms_date, units = "days")))
+
+# head(combined_hrv_data)
+
+set.seed(580)
+
+# Split the scaled hrv data set using an 80:20 train/test split
+hrv_data_split_idx <- createDataPartition(hrv_df_scaled$covid_status, p = 0.8, list = FALSE)
+
+train_hrv_covid <- hrv_df_scaled[hrv_data_split_idx, ]
+test_hrv_covid <- hrv_df_scaled[-hrv_data_split_idx, ]
 ```
 
+
 ```{r}
-combined_hrv_data <- combined_hrv_data %>%
-  mutate(
-    measurement_date = as.Date(ymd_hms(measurement_datetime)),
-    symptoms_date = as.Date(mdy(symptoms_onset), na.strings = ""),
-    covid_status = ifelse(is.na(symptoms_date) | measurement_date < symptoms_date, 0, 1)
-  )
-head(combined_hrv_data)
+## Fit a logistic regression model
+logit_model <- glm(covid_status ~ ., data = train_hrv_covid, family = "binomial")
+
+## Summary of the logistic regression model
+summary(logit_model)
 ```
 
