@@ -11,4 +11,4 @@ We will try two approaches to handle the large number of features of the data se
 
 #### Project Updates:
 All modeling progress will be tracked and updated via frequent updates to the Github file.
-Current Progress: EDA
+Current Progress: Building models & Performance measurement
