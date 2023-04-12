@@ -24,6 +24,7 @@ library(factoextra)
 library(lme4)
 library(ROCR)
 library(class)
+library(randomForest)
 ```
 
 
@@ -312,15 +313,63 @@ text(x = 0.7, y = 0.3, labels = paste("AUC =", round(performance(roc_obj, "auc")
 
 
 ```{r}
+train_features <- PCA_train %>% select_if(is.numeric)
+train_target <- PCA_train$covid_status
+test_features <- PCA_test %>% select_if(is.numeric)
+test_target <- PCA_test$covid_status
+
+k_values <- 1:40
+cv_errors <- sapply(k_values, function(k) {
+  mean(knn.cv(train_features, train_target, k = k) != train_target)
+})
+
+best_k <- k_values[which.min(cv_errors)]
+
+knn_model <- knn3(as.matrix(train_features), train_target, k = best_k)
+```
+
+
+```{r}
+knn_pred_prob <- predict(knn_model, as.matrix(test_features), type = "prob")[, 2]
+
+threshold <- 0.5
+knn_pred_labels <- ifelse(knn_pred_prob > threshold, 1, 0)
+confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
+print(confusion_matrix)
+
+roc_obj <- prediction(knn_pred_prob, test_target)
+roc_perf <- performance(roc_obj, "tpr", "fpr")
+
+plot(roc_perf, col = "red", main = "ROC curve")
+abline(0, 1, col = "gray", lty = 2)
+
+auc_value <- performance(roc_obj, "auc")@y.values[[1]]
+text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
+```
+
+```{r}
 train_features <- PCA_train %>% select(-covid_status)
 train_target <- PCA_train$covid_status
 test_features <- PCA_test %>% select(-covid_status)
 test_target <- PCA_test$covid_status
 
-knn_pred <- knn(train_features, test_features, train_target, k = 3)
+rf_model <- randomForest(x = train_features, y = train_target, importance = TRUE)
+```
 
-k_values <- 1:20
-cv_errors <- knn.cv(train_features, train_target, k = k_values)
-best_k <- k_values[which.min(cv_errors)]
+```{r}
+rf_pred_prob <- predict(rf_model, test_features, type = "prob")[,2]
+threshold <- 0.5
+knn_pred_labels <- ifelse(rf_pred_prob > threshold, 1, 0)
+confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
+print(confusion_matrix)
+
+roc_obj <- prediction(rf_pred_prob, test_target)
+roc_perf <- performance(roc_obj, "tpr", "fpr")
+
+plot(roc_perf, col = "red", main = "ROC curve")
+abline(0, 1, col = "gray", lty = 2)
+
+auc_value <- performance(roc_obj, "auc")@y.values[[1]]
+text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
 ```
 
