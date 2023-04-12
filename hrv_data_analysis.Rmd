@@ -20,6 +20,10 @@ library(patchwork)
 library(stats)
 library(caret)
 library(lubridate)
+library(factoextra)
+library(lme4)
+library(ROCR)
+library(class)
 ```
 
 
@@ -193,6 +197,14 @@ hrv_df_scaled %>%
 summary(hrv_df_scaled)
 ```
   
+```{r}
+### remove rare countries, which is 0.0182 amount of observations
+country_counts <- table(hrv_df_scaled$country)
+low_count_countries <- names(country_counts)[country_counts <= 10]
+hrv_df_scaled <- hrv_df_scaled %>% filter(!(country %in% low_count_countries))
+```
+
+
 
 ```{r}
 ## Create a feature that measures the number of days since the onset of symptoms
@@ -212,9 +224,103 @@ test_hrv_covid <- hrv_df_scaled[-hrv_data_split_idx, ]
 
 ```{r}
 ## Fit a logistic regression model
-logit_model <- glm(covid_status ~ ., data = train_hrv_covid, family = "binomial")
+logit_model_1 <- glm(covid_status ~ ., data = train_hrv_covid, family = "binomial")
 
 ## Summary of the logistic regression model
-summary(logit_model)
+summary(logit_model_1)
+```
+
+```{r}
+hrv_df_numerics = train_hrv_covid %>% select_if(is.numeric)
+hrv_pca <- prcomp(hrv_df_numerics, scale = TRUE)
+fviz_eig(hrv_pca, addlabels = T, ncp = 16)
+```
+```{r}
+### Base on the scree plot of PCA, we will choose the first 3 PCs
+PCA_train = train_hrv_covid %>% select_if(is.factor)
+PCA_train$PC1 = hrv_pca$x[,1]
+PCA_train$PC2 = hrv_pca$x[,2]
+PCA_train$PC3 = hrv_pca$x[,3]
+logit_model_2 = glm(covid_status ~ ., data = PCA_train, family = "binomial")
+summary(logit_model_2)
+```
+
+```{r}
+logit_model_3 = glmer(covid_status ~ PC1 + PC2 + PC3 + time_of_day + how_feel + 
+                        how_mood + gender + (1|age_range) + (1|country), 
+                      data = PCA_train, family = "binomial")
+
+summary(logit_model_3)
+```
+
+```{r}
+test_hrv_numerics <- test_hrv_covid %>% select_if(is.numeric)
+test_pca_transform <- predict(hrv_pca, newdata = test_hrv_numerics)
+PCA_test = cbind(test_hrv_covid %>% select_if(is.factor), test_pca_transform[, 1:3])
+```
+
+```{r}
+# logit_model_2
+train_pred_prob <- predict(logit_model_2, PCA_train, type = "response")
+train_roc_obj <- prediction(train_pred_prob, PCA_train$covid_status)
+train_roc_perf <- performance(train_roc_obj, "sens", "spec")
+
+# Find the best threshold
+youdens_j <- train_roc_perf@y.values[[1]] + train_roc_perf@x.values[[1]] - 1
+best_threshold <- train_roc_perf@alpha.values[[1]][which.max(youdens_j)]
+
+# create confusion_matrix
+predicted_class <- ifelse(predictions > best_threshold, 1, 0)
+confusion_matrix <- table(Predicted = predicted_class, Actual = test_hrv_covid$covid_status)
+print(confusion_matrix)
+
+pred_prob <- predict(logit_model_2, PCA_test, type = "response")
+roc_obj <- prediction(pred_prob, PCA_test$covid_status)
+roc_perf <- performance(roc_obj, "tpr", "fpr")
+
+# Plot the ROC curve
+plot(roc_perf, col = "red", main = "ROC curve")
+abline(0, 1, col = "gray", lty = 2)
+text(x = 0.7, y = 0.3, labels = paste("AUC =", round(performance(roc_obj, "auc")@y.values[[1]], 4)), cex = 1)
+```
+
+
+```{r}
+# logit_model_3
+train_pred_prob <- predict(logit_model_3, PCA_train, type = "response")
+train_roc_obj <- prediction(train_pred_prob, PCA_train$covid_status)
+train_roc_perf <- performance(train_roc_obj, "sens", "spec")
+
+# Find the best threshold
+youdens_j <- train_roc_perf@y.values[[1]] + train_roc_perf@x.values[[1]] - 1
+best_threshold <- train_roc_perf@alpha.values[[1]][which.max(youdens_j)]
+
+# create confusion_matrix
+predicted_class <- ifelse(predictions > best_threshold, 1, 0)
+confusion_matrix <- table(Predicted = predicted_class, Actual = test_hrv_covid$covid_status)
+print(confusion_matrix)
+
+pred_prob <- predict(logit_model_3, PCA_test, type = "response")
+roc_obj <- prediction(pred_prob, PCA_test$covid_status)
+roc_perf <- performance(roc_obj, "tpr", "fpr")
+
+# Plot the ROC curve
+plot(roc_perf, col = "red", main = "ROC curve")
+abline(0, 1, col = "gray", lty = 2)
+text(x = 0.7, y = 0.3, labels = paste("AUC =", round(performance(roc_obj, "auc")@y.values[[1]], 4)), cex = 1)
+```
+
+
+```{r}
+train_features <- PCA_train %>% select(-covid_status)
+train_target <- PCA_train$covid_status
+test_features <- PCA_test %>% select(-covid_status)
+test_target <- PCA_test$covid_status
+
+knn_pred <- knn(train_features, test_features, train_target, k = 3)
+
+k_values <- 1:20
+cv_errors <- knn.cv(train_features, train_target, k = k_values)
+best_k <- k_values[which.min(cv_errors)]
 ```
 
