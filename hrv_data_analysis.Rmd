@@ -25,6 +25,7 @@ library(lme4)
 library(ROCR)
 library(class)
 library(randomForest)
+library(e1071)
 ```
 
 
@@ -77,6 +78,14 @@ combined_hrv_data$how_feel <- factor(combined_hrv_data$how_feel, levels = c(-2, 
 combined_hrv_data$how_mood <- factor(combined_hrv_data$how_mood, levels = c(-2, -1, 0, 1, 2))
 
 combined_hrv_data$gender = factor(combined_hrv_data$gender)
+
+
+### remove rare countries, which is 0.0182 amount of observations
+country_counts <- table(combined_hrv_data$country)
+low_count_countries <- names(country_counts)[country_counts <= 10]
+combined_hrv_data <- combined_hrv_data %>% filter(!(country %in% low_count_countries))
+
+
 combined_hrv_data$country = factor(combined_hrv_data$country)
 
 #head(combined_hrv_data, 10)
@@ -198,12 +207,7 @@ hrv_df_scaled %>%
 summary(hrv_df_scaled)
 ```
   
-```{r}
-### remove rare countries, which is 0.0182 amount of observations
-country_counts <- table(hrv_df_scaled$country)
-low_count_countries <- names(country_counts)[country_counts <= 10]
-hrv_df_scaled <- hrv_df_scaled %>% filter(!(country %in% low_count_countries))
-```
+
 
 
 
@@ -248,7 +252,7 @@ summary(logit_model_2)
 
 ```{r}
 logit_model_3 = glmer(covid_status ~ PC1 + PC2 + PC3 + time_of_day + how_feel + 
-                        how_mood + gender + (1|age_range) + (1|country), 
+                        how_mood + gender + age_range + (1|country), 
                       data = PCA_train, family = "binomial")
 
 summary(logit_model_3)
@@ -271,11 +275,12 @@ youdens_j <- train_roc_perf@y.values[[1]] + train_roc_perf@x.values[[1]] - 1
 best_threshold <- train_roc_perf@alpha.values[[1]][which.max(youdens_j)]
 
 # create confusion_matrix
-predicted_class <- ifelse(predictions > best_threshold, 1, 0)
+pred_prob <- predict(logit_model_2, PCA_test, type = "response")
+predicted_class <- ifelse(pred_prob > best_threshold, 1, 0)
 confusion_matrix <- table(Predicted = predicted_class, Actual = test_hrv_covid$covid_status)
 print(confusion_matrix)
 
-pred_prob <- predict(logit_model_2, PCA_test, type = "response")
+
 roc_obj <- prediction(pred_prob, PCA_test$covid_status)
 roc_perf <- performance(roc_obj, "tpr", "fpr")
 
@@ -297,11 +302,12 @@ youdens_j <- train_roc_perf@y.values[[1]] + train_roc_perf@x.values[[1]] - 1
 best_threshold <- train_roc_perf@alpha.values[[1]][which.max(youdens_j)]
 
 # create confusion_matrix
-predicted_class <- ifelse(predictions > best_threshold, 1, 0)
+pred_prob <- predict(logit_model_3, PCA_test, type = "response")
+predicted_class <- ifelse(pred_prob > best_threshold, 1, 0)
 confusion_matrix <- table(Predicted = predicted_class, Actual = test_hrv_covid$covid_status)
 print(confusion_matrix)
 
-pred_prob <- predict(logit_model_3, PCA_test, type = "response")
+
 roc_obj <- prediction(pred_prob, PCA_test$covid_status)
 roc_perf <- performance(roc_obj, "tpr", "fpr")
 
@@ -313,24 +319,71 @@ text(x = 0.7, y = 0.3, labels = paste("AUC =", round(performance(roc_obj, "auc")
 
 
 ```{r}
-train_features <- PCA_train %>% select_if(is.numeric)
+# train_features <- PCA_train %>% select_if(is.numeric)
+# train_target <- PCA_train$covid_status
+# test_features <- PCA_test %>% select_if(is.numeric)
+# test_target <- PCA_test$covid_status
+# 
+# 
+# train_features <- train_hrv_covid %>% select_if(is.numeric)
+# train_target <- train_hrv_covid$covid_status
+# test_features <- test_hrv_covid %>% select_if(is.numeric)
+# test_target <- test_hrv_covid$covid_status
+# 
+# k_values <- 1:20
+# cv_errors <- sapply(k_values, function(k) {
+#   mean(knn.cv(train_features, train_target, k = k) != train_target)
+# })
+# 
+# best_k <- k_values[which.min(cv_errors)]
+# 
+# knn_model <- knn3(as.matrix(train_features), train_target, k = best_k)
+# 
+# knn_pred_prob <- predict(knn_model, as.matrix(test_features), type = "prob")[, 2]
+# 
+# threshold <- 0.5
+# knn_pred_labels <- ifelse(knn_pred_prob > threshold, 1, 0)
+# confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
+# print(confusion_matrix)
+# 
+# roc_obj <- prediction(knn_pred_prob, test_target)
+# roc_perf <- performance(roc_obj, "tpr", "fpr")
+# 
+# plot(roc_perf, col = "red", main = "ROC curve")
+# abline(0, 1, col = "gray", lty = 2)
+# 
+# auc_value <- performance(roc_obj, "auc")@y.values[[1]]
+# text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
+```
+
+```{r}
+# train_features <- train_hrv_covid %>% select(-covid_status,-country)
+# train_target <- train_hrv_covid$covid_status
+# test_features <- test_hrv_covid %>% select(-covid_status,-country)
+# test_target <- test_hrv_covid$covid_status
+
+train_features <- PCA_train %>% select(-covid_status,-country)
 train_target <- PCA_train$covid_status
-test_features <- PCA_test %>% select_if(is.numeric)
+test_features <- PCA_test %>% select(-covid_status,-country)
 test_target <- PCA_test$covid_status
 
-k_values <- 1:40
+formula <- ~.
+dummy_vars <- dummyVars(formula, data = train_features)
+train_features <- as.data.frame(predict(dummy_vars, newdata = train_features))
+
+dummy_vars <- dummyVars(formula, data = test_features)
+test_features <- as.data.frame(predict(dummy_vars, newdata = test_features))
+
+k_values <- 1:20
 cv_errors <- sapply(k_values, function(k) {
   mean(knn.cv(train_features, train_target, k = k) != train_target)
 })
 
 best_k <- k_values[which.min(cv_errors)]
 
-knn_model <- knn3(as.matrix(train_features), train_target, k = best_k)
-```
+knn_model_2 <- knn3(as.matrix(train_features), train_target, k = best_k)
 
-
-```{r}
-knn_pred_prob <- predict(knn_model, as.matrix(test_features), type = "prob")[, 2]
+knn_pred_prob <- predict(knn_model_2, as.matrix(test_features), type = "prob")[, 2]
 
 threshold <- 0.5
 knn_pred_labels <- ifelse(knn_pred_prob > threshold, 1, 0)
@@ -347,14 +400,65 @@ auc_value <- performance(roc_obj, "auc")@y.values[[1]]
 text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
 ```
 
-```{r}
-train_features <- PCA_train %>% select(-covid_status)
-train_target <- PCA_train$covid_status
-test_features <- PCA_test %>% select(-covid_status)
-test_target <- PCA_test$covid_status
 
-rf_model <- randomForest(x = train_features, y = train_target, importance = TRUE)
+
+
+
+
+```{r}
+# https://machinelearningmastery.com/tune-machine-learning-algorithms-in-r/
+customRF <- list(type = "Classification", library = "randomForest", loop = NULL)
+customRF$parameters <- data.frame(parameter = c("mtry", "ntree"), class = rep("numeric", 2), label = c("mtry", "ntree"))
+customRF$grid <- function(x, y, len = NULL, search = "grid") {}
+customRF$fit <- function(x, y, wts, param, lev, last, weights, classProbs, ...) {
+  randomForest(x, y, mtry = param$mtry, ntree=param$ntree, ...)
+}
+customRF$predict <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
+   predict(modelFit, newdata)
+customRF$prob <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
+   predict(modelFit, newdata, type = "prob")
+customRF$sort <- function(x) x[order(x[,1]),]
+customRF$levels <- function(x) x$classes
 ```
+
+
+
+```{r}
+# train_features <- PCA_train %>% select(-covid_status)
+# train_target <- PCA_train$covid_status
+# test_features <- PCA_test %>% select(-covid_status)
+# test_target <- PCA_test$covid_status
+
+
+train_features <- train_hrv_covid %>% select(-covid_status)
+train_target <- train_hrv_covid$covid_status
+test_features <- test_hrv_covid %>% select(-covid_status)
+test_target <- test_hrv_covid$covid_status
+
+tuning_grid <- expand.grid(
+  .mtry = seq(1, ncol(train_features), 2),
+  .ntree = c(100, 250, 500, 750, 1000) 
+)
+
+control <- trainControl(
+  method = "cv",  # Cross-validation
+  number = 5,     # Number of folds
+  search = "grid" # Grid search
+)
+rf_grid <- train(
+  x = train_features,
+  y = train_target,
+  method = customRF,
+  tuneGrid = tuning_grid,
+  trControl = control
+)
+
+best_params <- rf_grid$bestTune
+print(best_params)
+
+rf_model <- randomForest(x = train_features, y = train_target, importance = TRUE, mtry = best_params$mtry, ntree = best_params$ntree)
+```
+
 
 ```{r}
 rf_pred_prob <- predict(rf_model, test_features, type = "prob")[,2]
@@ -371,5 +475,82 @@ abline(0, 1, col = "gray", lty = 2)
 
 auc_value <- performance(roc_obj, "auc")@y.values[[1]]
 text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
+```
+
+
+
+```{r}
+train_features <- PCA_train %>% select(-covid_status)
+train_target <- PCA_train$covid_status
+test_features <- PCA_test %>% select(-covid_status)
+test_target <- PCA_test$covid_status
+
+tuning_grid <- expand.grid(
+  .mtry = seq(1, ncol(train_features), 2),
+  .ntree = c(100, 250, 500, 750, 1000) 
+)
+
+control <- trainControl(
+  method = "cv",  # Cross-validation
+  number = 5,     # Number of folds
+  search = "grid" # Grid search
+)
+rf_grid <- train(
+  x = train_features,
+  y = train_target,
+  method = customRF,
+  tuneGrid = tuning_grid,
+  trControl = control
+)
+
+best_params <- rf_grid$bestTune
+print(best_params)
+
+rf_model <- randomForest(x = train_features, y = train_target, importance = TRUE, mtry = best_params$mtry, ntree = best_params$ntree)
+```
+
+
+```{r}
+rf_pred_prob <- predict(rf_model, test_features, type = "prob")[,2]
+threshold <- 0.5
+knn_pred_labels <- ifelse(rf_pred_prob > threshold, 1, 0)
+confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
+print(confusion_matrix)
+
+roc_obj <- prediction(rf_pred_prob, test_target)
+roc_perf <- performance(roc_obj, "tpr", "fpr")
+
+plot(roc_perf, col = "red", main = "ROC curve")
+abline(0, 1, col = "gray", lty = 2)
+
+auc_value <- performance(roc_obj, "auc")@y.values[[1]]
+text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
+```
+
+```{r}
+hrv_one_hot = hrv_df_scaled %>% select(-covid_status)
+formula <- ~.
+dummy_vars <- dummyVars(formula, data = hrv_one_hot)
+hrv_one_hot <- as.data.frame(predict(dummy_vars, newdata = hrv_one_hot)) %>% cbind(covid_status = hrv_df_scaled$covid_status)
+
+SVM_train <- hrv_one_hot[hrv_data_split_idx,]
+SVM_test <- hrv_one_hot[-hrv_data_split_idx,]
+
+svm_model <- svm(covid_status ~ ., data = SVM_train, probability = TRUE)
+svm_pred <- predict(svm_model, SVM_test %>% select(-covid_status), probability = TRUE)
+svm_pred_prob <- attr(svm_pred, "probabilities")[, 1]
+
+threshold <- 0.5
+predicted_class <- ifelse(svm_pred_prob > threshold, 1, 0)
+confusion_matrix <- table(Predicted = predicted_class, Actual = SVM_test$covid_status)
+print(confusion_matrix)
+
+roc_obj <- prediction(svm_pred_prob, SVM_test$covid_status)
+roc_perf <- performance(roc_obj, "tpr", "fpr")
+auc_value <- performance(roc_obj, "auc")@y.values[[1]]
+
+plot(roc_perf, col = "red", main = paste0("ROC curve (AUC = ", round(auc_value, 3), ")"))
+abline(0, 1, col = "gray", lty = 2)
+
 ```
 
