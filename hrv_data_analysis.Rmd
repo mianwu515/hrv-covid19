@@ -246,8 +246,8 @@ PCA_train = train_hrv_covid %>% select_if(is.factor)
 PCA_train$PC1 = hrv_pca$x[,1]
 PCA_train$PC2 = hrv_pca$x[,2]
 PCA_train$PC3 = hrv_pca$x[,3]
-logit_model_2 = glm(covid_status ~ ., data = PCA_train, family = "binomial")
-summary(logit_model_2)
+# logit_model_2 = glm(covid_status ~ ., data = PCA_train, family = "binomial")
+# summary(logit_model_2)
 ```
 
 ```{r}
@@ -265,29 +265,29 @@ PCA_test = cbind(test_hrv_covid %>% select_if(is.factor), test_pca_transform[, 1
 ```
 
 ```{r}
-# logit_model_2
-train_pred_prob <- predict(logit_model_2, PCA_train, type = "response")
-train_roc_obj <- prediction(train_pred_prob, PCA_train$covid_status)
-train_roc_perf <- performance(train_roc_obj, "sens", "spec")
-
-# Find the best threshold
-youdens_j <- train_roc_perf@y.values[[1]] + train_roc_perf@x.values[[1]] - 1
-best_threshold <- train_roc_perf@alpha.values[[1]][which.max(youdens_j)]
-
-# create confusion_matrix
-pred_prob <- predict(logit_model_2, PCA_test, type = "response")
-predicted_class <- ifelse(pred_prob > best_threshold, 1, 0)
-confusion_matrix <- table(Predicted = predicted_class, Actual = test_hrv_covid$covid_status)
-print(confusion_matrix)
-
-
-roc_obj <- prediction(pred_prob, PCA_test$covid_status)
-roc_perf <- performance(roc_obj, "tpr", "fpr")
-
-# Plot the ROC curve
-plot(roc_perf, col = "red", main = "ROC curve")
-abline(0, 1, col = "gray", lty = 2)
-text(x = 0.7, y = 0.3, labels = paste("AUC =", round(performance(roc_obj, "auc")@y.values[[1]], 4)), cex = 1)
+# # logit_model_2
+# train_pred_prob <- predict(logit_model_2, PCA_train, type = "response")
+# train_roc_obj <- prediction(train_pred_prob, PCA_train$covid_status)
+# train_roc_perf <- performance(train_roc_obj, "sens", "spec")
+# 
+# # Find the best threshold
+# youdens_j <- train_roc_perf@y.values[[1]] + train_roc_perf@x.values[[1]] - 1
+# best_threshold <- train_roc_perf@alpha.values[[1]][which.max(youdens_j)]
+# 
+# # create confusion_matrix
+# pred_prob <- predict(logit_model_2, PCA_test, type = "response")
+# predicted_class <- ifelse(pred_prob > best_threshold, 1, 0)
+# confusion_matrix <- table(Predicted = predicted_class, Actual = test_hrv_covid$covid_status)
+# print(confusion_matrix)
+# 
+# 
+# roc_obj <- prediction(pred_prob, PCA_test$covid_status)
+# roc_perf <- performance(roc_obj, "tpr", "fpr")
+# 
+# # Plot the ROC curve
+# plot(roc_perf, col = "red", main = "ROC curve")
+# abline(0, 1, col = "gray", lty = 2)
+# text(x = 0.7, y = 0.3, labels = paste("AUC =", round(performance(roc_obj, "auc")@y.values[[1]], 4)), cex = 1)
 ```
 
 
@@ -306,13 +306,16 @@ pred_prob <- predict(logit_model_3, PCA_test, type = "response")
 predicted_class <- ifelse(pred_prob > best_threshold, 1, 0)
 confusion_matrix <- table(Predicted = predicted_class, Actual = test_hrv_covid$covid_status)
 print(confusion_matrix)
-
+accuracy <- (confusion_matrix[1,1] + confusion_matrix[2,2])/sum(confusion_matrix)
+false_negative <- confusion_matrix[1,2]/sum(confusion_matrix[, 2])
+cat("Accuracy:", round(accuracy,3), "\n")
+cat("False negative rate:", round(false_negative,3), "\n")
 
 roc_obj <- prediction(pred_prob, PCA_test$covid_status)
 roc_perf <- performance(roc_obj, "tpr", "fpr")
 
 # Plot the ROC curve
-plot(roc_perf, col = "red", main = "ROC curve")
+plot(roc_perf, col = "red", main = "ROC curve for LR")
 abline(0, 1, col = "gray", lty = 2)
 text(x = 0.7, y = 0.3, labels = paste("AUC =", round(performance(roc_obj, "auc")@y.values[[1]], 4)), cex = 1)
 ```
@@ -389,11 +392,15 @@ threshold <- 0.5
 knn_pred_labels <- ifelse(knn_pred_prob > threshold, 1, 0)
 confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
 print(confusion_matrix)
+accuracy <- (confusion_matrix[1,1] + confusion_matrix[2,2])/sum(confusion_matrix)
+false_negative <- confusion_matrix[1,2]/sum(confusion_matrix[, 2])
+cat("Accuracy:", round(accuracy,3), "\n")
+cat("False negative rate:", round(false_negative,3), "\n")
 
 roc_obj <- prediction(knn_pred_prob, test_target)
 roc_perf <- performance(roc_obj, "tpr", "fpr")
 
-plot(roc_perf, col = "red", main = "ROC curve")
+plot(roc_perf, col = "red", main = "ROC curve for KNN")
 abline(0, 1, col = "gray", lty = 2)
 
 auc_value <- performance(roc_obj, "auc")@y.values[[1]]
@@ -516,11 +523,15 @@ threshold <- 0.5
 knn_pred_labels <- ifelse(rf_pred_prob > threshold, 1, 0)
 confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
 print(confusion_matrix)
+accuracy <- (confusion_matrix[1,1] + confusion_matrix[2,2])/sum(confusion_matrix)
+false_negative <- confusion_matrix[1,2]/sum(confusion_matrix[, 2])
+cat("Accuracy:", round(accuracy,3), "\n")
+cat("False negative rate:", round(false_negative,3), "\n")
 
 roc_obj <- prediction(rf_pred_prob, test_target)
 roc_perf <- performance(roc_obj, "tpr", "fpr")
 
-plot(roc_perf, col = "red", main = "ROC curve")
+plot(roc_perf, col = "red", main = "ROC curve for RF")
 abline(0, 1, col = "gray", lty = 2)
 
 auc_value <- performance(roc_obj, "auc")@y.values[[1]]
@@ -544,13 +555,18 @@ threshold <- 0.5
 predicted_class <- ifelse(svm_pred_prob > threshold, 1, 0)
 confusion_matrix <- table(Predicted = predicted_class, Actual = SVM_test$covid_status)
 print(confusion_matrix)
+accuracy <- (confusion_matrix[1,1] + confusion_matrix[2,2])/sum(confusion_matrix)
+false_negative <- confusion_matrix[1,2]/sum(confusion_matrix[, 2])
+cat("Accuracy:", round(accuracy,3), "\n")
+cat("False negative rate:", round(false_negative,3), "\n")
 
 roc_obj <- prediction(svm_pred_prob, SVM_test$covid_status)
 roc_perf <- performance(roc_obj, "tpr", "fpr")
 auc_value <- performance(roc_obj, "auc")@y.values[[1]]
 
-plot(roc_perf, col = "red", main = paste0("ROC curve (AUC = ", round(auc_value, 3), ")"))
+plot(roc_perf, col = "red", main = "ROC curve for SVM")
 abline(0, 1, col = "gray", lty = 2)
-
+auc_value <- performance(roc_obj, "auc")@y.values[[1]]
+text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
 ```
 
