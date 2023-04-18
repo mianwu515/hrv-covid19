@@ -26,6 +26,7 @@ library(ROCR)
 library(class)
 library(randomForest)
 library(e1071)
+library(car)
 ```
 
 
@@ -568,5 +569,47 @@ plot(roc_perf, col = "red", main = "ROC curve for SVM")
 abline(0, 1, col = "gray", lty = 2)
 auc_value <- performance(roc_obj, "auc")@y.values[[1]]
 text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
+```
+
+```{r}
+logit_model_3
+```
+
+```{r}
+hrv_pca$rotation
+```
+```{r}
+Anova(logit_model_3, type = "III")
+
+# Perform hypothesis tests on random effects
+ranef(logit_model_3)
+```
+
+```{r}
+importance_table <- importance(rf_model)
+
+# Sort variables by importance (mean decrease in accuracy)
+sorted_importance_table <- importance_table[order(importance_table[, "MeanDecreaseAccuracy"], decreasing = TRUE), ]
+
+# Print the sorted importance table
+print(sorted_importance_table)
+```
+
+```{r}
+if (svm_model$kernel == "linear") {
+  # Extract the coefficients
+  coef_matrix <- t(svm_model$coefs) %*% svm_model$SV
+  absolute_coef <- abs(coef_matrix)
+  
+  # Sort the features by importance
+  feature_importance <- data.frame(Feature = colnames(absolute_coef),
+                                   Importance = absolute_coef)
+  sorted_feature_importance <- feature_importance[order(-feature_importance$Importance), ]
+  
+  # Print the sorted feature importance
+  print(sorted_feature_importance)
+} else {
+  cat("The SVM model is not linear.")
+}
 ```
 
