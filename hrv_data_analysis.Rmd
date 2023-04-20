@@ -432,57 +432,57 @@ customRF$levels <- function(x) x$classes
 
 
 ```{r}
-# train_features <- PCA_train %>% select(-covid_status)
-# train_target <- PCA_train$covid_status
-# test_features <- PCA_test %>% select(-covid_status)
-# test_target <- PCA_test$covid_status
-
-
-train_features <- train_hrv_covid %>% select(-covid_status)
-train_target <- train_hrv_covid$covid_status
-test_features <- test_hrv_covid %>% select(-covid_status)
-test_target <- test_hrv_covid$covid_status
-
-tuning_grid <- expand.grid(
-  .mtry = seq(1, ncol(train_features), 2),
-  .ntree = c(100, 250, 500, 750, 1000) 
-)
-
-control <- trainControl(
-  method = "cv",  # Cross-validation
-  number = 5,     # Number of folds
-  search = "grid" # Grid search
-)
-rf_grid <- train(
-  x = train_features,
-  y = train_target,
-  method = customRF,
-  tuneGrid = tuning_grid,
-  trControl = control
-)
-
-best_params <- rf_grid$bestTune
-print(best_params)
-
-rf_model <- randomForest(x = train_features, y = train_target, importance = TRUE, mtry = best_params$mtry, ntree = best_params$ntree)
+# # train_features <- PCA_train %>% select(-covid_status)
+# # train_target <- PCA_train$covid_status
+# # test_features <- PCA_test %>% select(-covid_status)
+# # test_target <- PCA_test$covid_status
+# 
+# 
+# train_features <- train_hrv_covid %>% select(-covid_status)
+# train_target <- train_hrv_covid$covid_status
+# test_features <- test_hrv_covid %>% select(-covid_status)
+# test_target <- test_hrv_covid$covid_status
+# 
+# tuning_grid <- expand.grid(
+#   .mtry = seq(1, ncol(train_features), 2),
+#   .ntree = c(100, 250, 500, 750, 1000) 
+# )
+# 
+# control <- trainControl(
+#   method = "cv",  # Cross-validation
+#   number = 5,     # Number of folds
+#   search = "grid" # Grid search
+# )
+# rf_grid <- train(
+#   x = train_features,
+#   y = train_target,
+#   method = customRF,
+#   tuneGrid = tuning_grid,
+#   trControl = control
+# )
+# 
+# best_params <- rf_grid$bestTune
+# print(best_params)
+# 
+# rf_model <- randomForest(x = train_features, y = train_target, importance = TRUE, mtry = best_params$mtry, ntree = best_params$ntree)
 ```
 
 
 ```{r}
-rf_pred_prob <- predict(rf_model, test_features, type = "prob")[,2]
-threshold <- 0.5
-knn_pred_labels <- ifelse(rf_pred_prob > threshold, 1, 0)
-confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
-print(confusion_matrix)
-
-roc_obj <- prediction(rf_pred_prob, test_target)
-roc_perf <- performance(roc_obj, "tpr", "fpr")
-
-plot(roc_perf, col = "red", main = "ROC curve")
-abline(0, 1, col = "gray", lty = 2)
-
-auc_value <- performance(roc_obj, "auc")@y.values[[1]]
-text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
+# rf_pred_prob <- predict(rf_model, test_features, type = "prob")[,2]
+# threshold <- 0.5
+# knn_pred_labels <- ifelse(rf_pred_prob > threshold, 1, 0)
+# confusion_matrix <- table(Predicted = knn_pred_labels, Actual = test_target)
+# print(confusion_matrix)
+# 
+# roc_obj <- prediction(rf_pred_prob, test_target)
+# roc_perf <- performance(roc_obj, "tpr", "fpr")
+# 
+# plot(roc_perf, col = "red", main = "ROC curve")
+# abline(0, 1, col = "gray", lty = 2)
+# 
+# auc_value <- performance(roc_obj, "auc")@y.values[[1]]
+# text(x = 0.7, y = 0.3, labels = paste("AUC =", round(auc_value, 4)), cex = 1)
 ```
 
 
@@ -548,6 +548,17 @@ hrv_one_hot <- as.data.frame(predict(dummy_vars, newdata = hrv_one_hot)) %>% cbi
 SVM_train <- hrv_one_hot[hrv_data_split_idx,]
 SVM_test <- hrv_one_hot[-hrv_data_split_idx,]
 
+tune_grid <- expand.grid(C = c(0.1, 1, 10, 20, 50, 100))
+
+svm_tune_rbf <- train(covid_status ~ ., data = SVM_train,
+                      method = "svmRadial",
+                      trControl = ctrl,
+                      preProcess = c("center", "scale"),
+                      tuneGrid = tune_grid)
+optimal_cost_rbf <- svm_tune_rbf$bestTune$C
+
+svm_model <- svm(covid_status ~ ., data = SVM_train, kernel = "radial", cost = optimal_cost_rbf,probability = TRUE)
+
 svm_model <- svm(covid_status ~ ., data = SVM_train, probability = TRUE)
 svm_pred <- predict(svm_model, SVM_test %>% select(-covid_status), probability = TRUE)
 svm_pred_prob <- attr(svm_pred, "probabilities")[, 1]
@@ -595,21 +606,4 @@ sorted_importance_table <- importance_table[order(importance_table[, "MeanDecrea
 print(sorted_importance_table)
 ```
 
-```{r}
-if (svm_model$kernel == "linear") {
-  # Extract the coefficients
-  coef_matrix <- t(svm_model$coefs) %*% svm_model$SV
-  absolute_coef <- abs(coef_matrix)
-  
-  # Sort the features by importance
-  feature_importance <- data.frame(Feature = colnames(absolute_coef),
-                                   Importance = absolute_coef)
-  sorted_feature_importance <- feature_importance[order(-feature_importance$Importance), ]
-  
-  # Print the sorted feature importance
-  print(sorted_feature_importance)
-} else {
-  cat("The SVM model is not linear.")
-}
-```
 
